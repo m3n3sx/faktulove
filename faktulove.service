@@ -1,0 +1,16 @@
+[Unit]
+Description=Faktulove Django Application
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/faktulove
+Environment="PATH=/home/ubuntu/faktulove/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=faktulove.settings_prod"
+ExecStart=/home/ubuntu/faktulove/venv/bin/gunicorn --workers 3 --bind unix:/home/ubuntu/faktulove/faktulove.sock faktulove.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

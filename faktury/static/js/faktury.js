@@ -20,15 +20,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const miejscowoscInput = document.querySelector('#id_nabywca_miejscowosc');
     const krajInput = document.querySelector('#id_nabywca_kraj');
     
-    // FIXED: Pozycje Faktury - use correct container ID
+    // Pozycje Faktury
     const ukryjRabatButton = document.querySelector('#ukryj-rabat');
     const addButton = document.querySelector("#add-pozycja");
-    const totalForms = document.querySelector("#id_pozycje-TOTAL_FORMS");
-    const container = document.querySelector("#faktura-pozycje"); // FIXED: Use correct ID
+    const container = document.querySelector("#faktura-pozycje");
     
     // Użyj querySelectorAll *raz*, na początku
     let pozycjaForm = document.querySelectorAll(".pozycja-form");
-    let formNum = pozycjaForm.length - 1;
 
     // Funkcja pomocnicza do obsługi odpowiedzi fetch i błędów.
     function handleFetchResponse(response) {
@@ -43,9 +41,111 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(message);
     }
 
-    // -------------------------------------------------------------
+    // FIXED: Helper function to create a new row with proper structure
+    function createRow() {
+        const totalFormsElement = document.getElementById('id_pozycje-TOTAL_FORMS');
+        if (!totalFormsElement) {
+            console.error('TOTAL_FORMS element not found');
+            return null;
+        }
+        
+        const newIndex = parseInt(totalFormsElement.value);
+        const emptyFormElement = document.getElementById('empty-form');
+        
+        if (!emptyFormElement) {
+            console.error('Empty form template not found');
+            return null;
+        }
+        
+        // Clone the empty form element
+        const newForm = emptyFormElement.cloneNode(true);
+        newForm.id = `form-${newIndex}`; // Use a unique ID for the new row
+        newForm.style.display = ''; // Make sure it's visible
+        
+        // Update all the form field names and IDs
+        const inputs = newForm.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (input.name) {
+                input.name = input.name.replace('__prefix__', newIndex);
+            }
+            if (input.id) {
+                input.id = input.id.replace('__prefix__', newIndex);
+            }
+        });
+        
+        // Update labels
+        const labels = newForm.querySelectorAll('label');
+        labels.forEach(label => {
+            if (label.htmlFor) {
+                label.htmlFor = label.htmlFor.replace('__prefix__', newIndex);
+            }
+        });
+        
+        // Initialize event listeners for the new row
+        addFormListeners(newForm);
+        addProduktSelectionListener(newForm);
+        
+        // Add delete button functionality
+        const deleteBtn = newForm.querySelector('.usun-pozycje');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                const deleteCheckbox = newForm.querySelector('input[name$="-DELETE"]');
+                if (deleteCheckbox) {
+                    deleteCheckbox.checked = true;
+                    newForm.style.display = 'none';
+                    updateTotals();
+                }
+            });
+        }
+      
+        totalFormsElement.value = newIndex + 1;
+        return newForm;
+    }
+
+    function addPozycjaForm() {
+        try {
+            if (!container) {
+                displayErrorMessage("Kontener dla pozycji faktury nie został znaleziony");
+                return;
+            }
+            
+            let newForm = createRow();
+            if (!newForm) {
+                displayErrorMessage("Nie można utworzyć nowego wiersza");
+                return;
+            }
+            
+            container.appendChild(newForm);
+            
+            // Wyczyść wartości wejściowe w nowym formularzu
+            let inputs = newForm.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"])');
+            inputs.forEach(input => {
+                input.value = '';
+            });
+
+            let selects = newForm.querySelectorAll('select');
+            selects.forEach(select => {
+                select.selectedIndex = 0;
+            });
+
+            // Reset calculated values
+            const nettoCol = newForm.querySelector('.wartosc-netto-col');
+            const bruttoCol = newForm.querySelector('.wartosc-brutto-col');
+            if (nettoCol) nettoCol.textContent = '0.00';
+            if (bruttoCol) bruttoCol.textContent = '0.00';
+
+            updateTotals();
+            console.log('New position added successfully');
+
+        } catch (error) {
+            console.error("Error adding position form:", error);
+            displayErrorMessage("Wystąpił błąd podczas dodawania pozycji faktury: " + error.message);
+        }
+    }
+
+    // ------------------------------------------------------------
     // 1. Obsługa pobierania danych kontrahenta z GUS
-    // -------------------------------------------------------------
+    // ------------------------------------------------------------
 
     if (pobierzDaneGUSButton && nipInput) {
         pobierzDaneGUSButton.addEventListener("click", function() {
@@ -109,67 +209,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // FIXED: Helper function to create a new row with proper structure
-    function createRow() {
-        const totalFormsElement = document.getElementById('id_pozycje-TOTAL_FORMS');
-        if (!totalFormsElement) {
-            console.error('TOTAL_FORMS element not found');
-            return null;
-        }
-        
-        const newIndex = parseInt(totalFormsElement.value);
-        const emptyFormElement = document.getElementById('empty-form');
-        
-        if (!emptyFormElement) {
-            console.error('Empty form template not found');
-            return null;
-        }
-        
-        // Clone the empty form element
-        const emptyForm = emptyFormElement.cloneNode(true);
-        emptyForm.id = ''; // Remove the ID to avoid duplicates
-        emptyForm.style.display = ''; // Make sure it's visible
-        
-        // Update all the form field names and IDs
-        const inputs = emptyForm.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            if (input.name) {
-                input.name = input.name.replace('__prefix__', newIndex);
-            }
-            if (input.id) {
-                input.id = input.id.replace('__prefix__', newIndex);
-            }
-        });
-        
-        // Update labels
-        const labels = emptyForm.querySelectorAll('label');
-        labels.forEach(label => {
-            if (label.htmlFor) {
-                label.htmlFor = label.htmlFor.replace('__prefix__', newIndex);
-            }
-        });
-        
-        // Initialize event listeners for the new row
-        addFormListeners(emptyForm);
-        addProduktSelectionListener(emptyForm);
-        
-        // Add delete button functionality
-        const deleteBtn = emptyForm.querySelector('.usun-pozycje');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', function() {
-                const deleteCheckbox = emptyForm.querySelector('input[name$="-DELETE"]');
-                if (deleteCheckbox) {
-                    deleteCheckbox.checked = true;
-                    emptyForm.style.display = 'none';
-                    updateTotals();
-                }
-            });
-        }
-      
-        totalFormsElement.value = newIndex + 1;
-        return emptyForm;
-    }
-
     // -------------------------------------------------------------
     // 3. Obsługa dodawania pozycji faktury (i obliczeń)
     // -------------------------------------------------------------
@@ -191,53 +230,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function addPozycjaForm() {
-        try {
-            if (!container) {
-                displayErrorMessage("Kontener dla pozycji faktury nie został znaleziony");
-                return;
-            }
-            
-            let newForm = createRow();
-            if (!newForm) {
-                displayErrorMessage("Nie można utworzyć nowego wiersza");
-                return;
-            }
-            
-            container.appendChild(newForm);
-            
-            // Wyczyść wartości wejściowe w nowym formularzu
-            let inputs = newForm.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"])');
-            inputs.forEach(input => {
-                input.value = '';
-            });
-
-            let selects = newForm.querySelectorAll('select');
-            selects.forEach(select => {
-                select.selectedIndex = 0;
-            });
-
-            // Reset calculated values
-            const nettoCol = newForm.querySelector('.wartosc-netto-col');
-            const bruttoCol = newForm.querySelector('.wartosc-brutto-col');
-            if (nettoCol) nettoCol.textContent = '0.00';
-            if (bruttoCol) bruttoCol.textContent = '0.00';
-
-            updateTotals();
-            console.log('New position added successfully');
-
-        } catch (error) {
-            console.error("Error adding position form:", error);
-            displayErrorMessage("Wystąpił błąd podczas dodawania pozycji faktury: " + error.message);
-        }
-    }
-
     // FIXED: Dodaje listenery do *pojedynczego* wiersza formularza z prawidłowymi selektorami
     function addFormListeners(form) {
         const fields = [
             'input[name$="ilosc"]',
             'input[name$="cena_netto"]',
-            'select[name$="vat"]',  // FIXED: VAT is select field
+            'select[name$="vat"]',
             'input[name$="rabat"]',
             'select[name$="rabat_typ"]',
         ];
@@ -253,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Add new listeners
                 element.addEventListener('change', handleFieldChange);
                 element.addEventListener('keyup', handleFieldChange);
-                element.addEventListener('input', handleFieldChange);  // For real-time input
+                element.addEventListener('input', handleFieldChange);
             });
         });
     }
@@ -274,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const nazwaInput = form.querySelector('input[name$="nazwa"]');
         const cenaNettoInput = form.querySelector('input[name$="cena_netto"]');
         const vatSelect = form.querySelector('select[name$="vat"]');
-        const jednostkaField = form.querySelector('[name$="jednostka"]'); // FIXED: Can be input or select
+        const jednostkaField = form.querySelector('[name$="jednostka"]');
     
         // Remove existing listener to prevent duplicates
         produktSelect.removeEventListener('change', produktSelect._changeHandler);
@@ -327,17 +325,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // FIXED: Improved updateRowValues function with better error handling
     function updateRowValues(event, form) {
         try {
-            // Handle case where event is null (when called from product selection)
             const row = event ? event.target.closest('.pozycja-form') : form.closest('.pozycja-form') || form;
             if (!row) return;
             
-            // Skip deleted rows
             const deleteInput = row.querySelector('input[type="checkbox"][name$="DELETE"]');
             if (deleteInput && deleteInput.checked) {
                 return;
             }
         
-            // Get field values with fallbacks
             const iloscInput = row.querySelector('input[name$="ilosc"]');
             const cenaNettoInput = row.querySelector('input[name$="cena_netto"]');
             const vatSelect = row.querySelector('select[name$="vat"]');
@@ -352,7 +347,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
             let wartosc_netto = ilosc * cena_netto;
             
-            // Apply discount
             if (rabat_typ === 'procent' && rabat > 0) {
                 wartosc_netto = wartosc_netto * (1 - rabat / 100);
             } else if (rabat_typ === 'kwota' && rabat > 0) {
@@ -363,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const wartosc_vat = wartosc_netto * (vat / 100);
             const wartosc_brutto = wartosc_netto + wartosc_vat;
         
-            // Update display columns
             const nettoCol = row.querySelector('.wartosc-netto-col');
             const bruttoCol = row.querySelector('.wartosc-brutto-col');
             
@@ -387,7 +380,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let sumaBrutto = 0;
 
             document.querySelectorAll('.pozycja-form').forEach(row => {
-                // Skip deleted rows and hidden rows
                 const deleteInput = row.querySelector('input[type="checkbox"][name$="DELETE"]');
                 if ((deleteInput && deleteInput.checked) || row.style.display === 'none') {
                     return;
@@ -427,7 +419,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 sumaBrutto += wartosc_netto + wartosc_vat;
             });
 
-            // Update total displays with error checking
             const elements = {
                 '.suma-netto-przed-rabatem': sumaNettoPrzedRabatem.toFixed(2),
                 '.suma-rabatu': sumaRabatow.toFixed(2),
@@ -449,10 +440,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Inicjalizacja (po załadowaniu DOM) ---
-    // Dodaj listenery do *istniejących* formularzy
     if (pozycjaForm.length > 0) {
         pozycjaForm.forEach(form => {
-            // Skip the empty form template
             if (form.id !== 'empty-form') {
                 addFormListeners(form);
                 addProduktSelectionListener(form);
@@ -526,7 +515,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.error) {
                     displayErrorMessage("Błąd przy zapisie kontrahenta: " + data.error);
                 } else {
-                    // Check if option already exists
                     let optionExists = false;
                     if (kontrahentSelect) {
                         for (let i = 0; i < kontrahentSelect.options.length; i++) {
@@ -559,12 +547,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (ukryjRabatButton) {
         ukryjRabatButton.addEventListener('click', function() {
-            // Toggle rabat columns
             document.querySelectorAll('.rabat-col').forEach(col => {
                 col.style.display = col.style.display === 'none' ? '' : 'none';
             });
 
-            // Toggle summary rows if they exist
             const sumaPrzedRabatem = document.querySelector('.suma-przed-rabatem');
             const sumaPoRabacie = document.querySelector('.suma-po-rabacie');
             
@@ -575,7 +561,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 sumaPoRabacie.style.display = sumaPoRabacie.style.display === 'none' ? '' : 'none';
             }
             
-            // Update button text
             this.innerText = this.innerText === "Ukryj rabat" ? "Pokaż rabat" : "Ukryj rabat";
             
             updateTotals();
@@ -586,7 +571,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 7. Notifications handling
     // -------------------------------------------------------------
     
-    // Update read status when opening messages
     document.querySelectorAll('.wiadomosc-link').forEach(link => {
         link.addEventListener('click', async function() {
             const wiadomoscId = this.dataset.id;
@@ -600,5 +584,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    console.log('Faktury.js loaded successfully - FIXED VERSION with proper container handling');
+    console.log('Faktury.js loaded successfully - REPAIRED VERSION');
 });
