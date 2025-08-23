@@ -1140,6 +1140,3 @@ class OCRProcessingLog(models.Model):
     
     def __str__(self):
         return f"{self.level}: {self.document.original_filename} - {self.message[:50]}"
->>>>>>> Incoming (Background Agent changes)
->>>>>>> Incoming (Background Agent changes)
-

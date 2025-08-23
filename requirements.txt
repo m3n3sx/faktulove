@@ -73,5 +73,3 @@ django-storages[google]>=1.14.0
 # Progress Tracking
 django-celery-results>=2.5.0
 django-celery-beat>=2.5.0
->>>>>>> Incoming (Background Agent changes)
->>>>>>> Incoming (Background Agent changes)

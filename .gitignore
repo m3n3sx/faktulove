@@ -57,3 +57,6 @@ backup.json
 # Temporary files
 *.tmp
 *.temp
+
+# Google Cloud service account key
+service-account-key.json
